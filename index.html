@@ -13,8 +13,32 @@
       <p>输入每种颜色的筹码数量，快速计算总价值。</p>
     </header>
 
+    <section class="card card--connection" id="connection-card">
+      <h2>在线房间</h2>
+      <p class="connection__hint">
+        输入昵称后创建或加入房间，即可与房间内的朋友实时同步筹码结算。
+      </p>
+      <div class="connection__form">
+        <label class="connection__label" for="player-name">我的昵称</label>
+        <input id="player-name" type="text" placeholder="例如：Leo" maxlength="20">
+      </div>
+      <div class="connection__actions">
+        <button id="create-room" type="button" class="button button--secondary">创建房间</button>
+        <div class="connection__join">
+          <input id="room-code" type="text" placeholder="输入房间号" maxlength="8">
+          <button id="join-room" type="button" class="button">加入</button>
+        </div>
+      </div>
+      <div id="connection-status" class="connection__status" aria-live="polite"></div>
+      <div id="share-link" class="connection__share" hidden>
+        <p>分享给朋友：</p>
+        <code id="share-link-text"></code>
+        <button id="copy-link" type="button" class="button button--ghost">复制链接</button>
+      </div>
+    </section>
+
     <section class="card">
-      <form id="chip-form" class="form">
+      <form id="chip-form" class="form" data-disabled>
         <div class="form__row">
           <label for="black">黑色筹码 (¥40)</label>
           <div class="input-group">
@@ -74,11 +98,21 @@
       <ul id="breakdown" class="result__list"></ul>
     </section>
 
+    <section id="scoreboard" class="card card--scoreboard" hidden>
+      <div class="scoreboard__header">
+        <h2>房间结算</h2>
+        <span id="scoreboard-room" class="scoreboard__room"></span>
+      </div>
+      <ul id="scoreboard-list" class="scoreboard__list"></ul>
+    </section>
+
     <footer class="app__footer">
       <p>筹码面值可在脚本中修改。欢迎在 GitHub 上继续开发。</p>
     </footer>
   </main>
 
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
   <script src="script.js"></script>
 </body>
 </html>

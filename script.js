@@ -16,6 +16,8 @@ const connectionStatus = document.querySelector("#connection-status");
 const shareLinkContainer = document.querySelector("#share-link");
 const shareLinkText = document.querySelector("#share-link-text");
 const copyLinkButton = document.querySelector("#copy-link");
+const connectionCard = document.querySelector("#connection-card");
+const calculatorCard = document.querySelector("#calculator-card");
 const scoreboardSection = document.querySelector("#scoreboard");
 const scoreboardRoom = document.querySelector("#scoreboard-room");
 const scoreboardList = document.querySelector("#scoreboard-list");
@@ -47,13 +49,14 @@ const BASE_STACK_VALUE = Object.entries(STARTING_STACK).reduce(
 
 const firebaseConfig =
   window.FIREBASE_CONFIG || {
-    apiKey: "REPLACE_WITH_YOUR_API_KEY",
-    authDomain: "REPLACE_WITH_YOUR_AUTH_DOMAIN",
-    databaseURL: "REPLACE_WITH_YOUR_DATABASE_URL",
-    projectId: "REPLACE_WITH_YOUR_PROJECT_ID",
-    storageBucket: "REPLACE_WITH_YOUR_STORAGE_BUCKET",
-    messagingSenderId: "REPLACE_WITH_YOUR_SENDER_ID",
-    appId: "REPLACE_WITH_YOUR_APP_ID",
+    apiKey: "AIzaSyB7YKIRQxUsalxXpJvLmDLEBs481FeCADU",
+    authDomain: "chips-counting-f34a0.firebaseapp.com",
+    databaseURL: "https://chips-counting-f34a0-default-rtdb.firebaseio.com",
+    projectId: "chips-counting-f34a0",
+    storageBucket: "chips-counting-f34a0.firebasestorage.app",
+    messagingSenderId: "770413220260",
+    appId: "1:770413220260:web:5c5165e821c00d06e77131",
+    measurementId: "G-1ZZRND8ZYM",
   };
 
 let firebaseApp = null;
@@ -90,6 +93,12 @@ function setStatus(message, type = "info") {
 }
 
 function toggleFormEnabled(enabled) {
+  if (calculatorCard) {
+    calculatorCard.hidden = !enabled;
+  }
+  if (connectionCard && enabled) {
+    connectionCard.hidden = true;
+  }
   if (enabled) {
     chipForm.removeAttribute("data-disabled");
   } else {
@@ -143,30 +152,39 @@ async function createRoom() {
   createRoomButton.disabled = true;
   joinRoomButton.disabled = true;
 
-  const db = ensureFirebase();
-  let code = generateRoomCode();
-  let attempts = 0;
+  try {
+    const db = ensureFirebase();
+    let code = generateRoomCode();
+    let attempts = 0;
 
-  while (attempts < 5) {
-    // eslint-disable-next-line no-await-in-loop
-    const snapshot = await db.ref(`rooms/${code}`).get();
-    if (!snapshot.exists()) {
-      break;
+    while (attempts < 5) {
+      // eslint-disable-next-line no-await-in-loop
+      const snapshot = await db.ref(`rooms/${code}`).get();
+      if (!snapshot.exists()) {
+        break;
+      }
+      code = generateRoomCode();
+      attempts += 1;
     }
-    code = generateRoomCode();
-    attempts += 1;
+
+    const roomRef = db.ref(`rooms/${code}`);
+    await roomRef.set({
+      createdAt: firebase.database.ServerValue.TIMESTAMP,
+      baseStackValue: BASE_STACK_VALUE,
+    });
+
+    await connectToRoom(code, name);
+    setStatus(`房间创建成功，当前房间号：${code}`);
+  } catch (error) {
+    console.error("创建房间失败", error);
+    setStatus(
+      error?.message || "创建房间失败，请稍后重试。",
+      "error"
+    );
+  } finally {
+    createRoomButton.disabled = false;
+    joinRoomButton.disabled = false;
   }
-
-  const roomRef = db.ref(`rooms/${code}`);
-  await roomRef.set({
-    createdAt: firebase.database.ServerValue.TIMESTAMP,
-    baseStackValue: BASE_STACK_VALUE,
-  });
-
-  await connectToRoom(code, name);
-  setStatus(`房间创建成功，当前房间号：${code}`);
-  createRoomButton.disabled = false;
-  joinRoomButton.disabled = false;
 }
 
 async function joinRoom(codeFromInput) {
@@ -194,20 +212,29 @@ async function joinRoom(codeFromInput) {
   createRoomButton.disabled = true;
   joinRoomButton.disabled = true;
 
-  const db = ensureFirebase();
-  const roomRef = db.ref(`rooms/${code}`);
-  const snapshot = await roomRef.get();
-  if (!snapshot.exists()) {
-    setStatus("房间不存在，请确认房间号是否正确。", "error");
+  try {
+    const db = ensureFirebase();
+    const roomRef = db.ref(`rooms/${code}`);
+    const snapshot = await roomRef.get();
+    if (!snapshot.exists()) {
+      setStatus("房间不存在，请确认房间号是否正确。", "error");
+      createRoomButton.disabled = false;
+      joinRoomButton.disabled = false;
+      return;
+    }
+
+    await connectToRoom(code, name);
+    setStatus(`已加入房间：${code}`);
+  } catch (error) {
+    console.error("加入房间失败", error);
+    setStatus(
+      error?.message || "加入房间失败，请稍后重试。",
+      "error"
+    );
+  } finally {
     createRoomButton.disabled = false;
     joinRoomButton.disabled = false;
-    return;
   }
-
-  await connectToRoom(code, name);
-  setStatus(`已加入房间：${code}`);
-  createRoomButton.disabled = false;
-  joinRoomButton.disabled = false;
 }
 
 async function connectToRoom(code, name) {

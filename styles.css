@@ -48,6 +48,18 @@ body {
   border: 2px solid #2563eb;
 }
 
+.card--calculator {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.calculator__hint {
+  margin: 0;
+  color: #475569;
+  font-size: 0.95rem;
+}
+
 .card--connection {
   display: flex;
   flex-direction: column;

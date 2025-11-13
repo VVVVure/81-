@@ -10,13 +10,13 @@
   <main class="app">
     <header class="app__header">
       <h1>81筹码计算器</h1>
-      <p>输入每种颜色的筹码数量，快速计算总价值。</p>
+      <p>创建一个房间并邀请朋友加入，在专属页面中同步结算。</p>
     </header>
 
     <section class="card card--connection" id="connection-card">
-      <h2>在线房间</h2>
+      <h2>创建或加入房间</h2>
       <p class="connection__hint">
-        输入昵称后创建或加入房间，即可与房间内的朋友实时同步筹码结算。
+        输入昵称后创建房间或输入房间号加入。成功后将跳转到房间页面继续计算。
       </p>
       <div class="connection__form">
         <label class="connection__label" for="player-name">我的昵称</label>
@@ -30,92 +30,14 @@
         </div>
       </div>
       <div id="connection-status" class="connection__status" aria-live="polite"></div>
-      <div id="share-link" class="connection__share" hidden>
-        <p>分享给朋友：</p>
-        <code id="share-link-text"></code>
-        <button id="copy-link" type="button" class="button button--ghost">复制链接</button>
-      </div>
-    </section>
-
-    <section class="card card--calculator" id="calculator-card" data-stage="calculator" hidden>
-      <h2>我的计算</h2>
-      <p class="calculator__hint">确认买入手数后，填写自己当前持有的筹码数量即可看到盈亏。</p>
-      <form id="chip-form" class="form" data-disabled>
-        <div class="form__row">
-          <label for="black">黑色筹码 (¥40)</label>
-          <div class="input-group">
-            <input id="black" name="black" type="number" min="0" step="1" value="0" data-value="40">
-            <span class="input-group__hint">每枚 ¥40，默认 5 枚</span>
-          </div>
-        </div>
-
-        <div class="form__row">
-          <label for="blue">蓝色筹码 (¥20)</label>
-          <div class="input-group">
-            <input id="blue" name="blue" type="number" min="0" step="1" value="0" data-value="20">
-            <span class="input-group__hint">每枚 ¥20，默认 5 枚</span>
-          </div>
-        </div>
-
-        <div class="form__row">
-          <label for="white">白色筹码 (¥10)</label>
-          <div class="input-group">
-            <input id="white" name="white" type="number" min="0" step="1" value="0" data-value="10">
-            <span class="input-group__hint">每枚 ¥10，默认 8 枚</span>
-          </div>
-        </div>
-
-        <div class="form__row">
-          <label for="red">红色筹码 (¥2)</label>
-          <div class="input-group">
-            <input id="red" name="red" type="number" min="0" step="1" value="0" data-value="2">
-            <span class="input-group__hint">每枚 ¥2，默认 10 枚</span>
-          </div>
-        </div>
-
-        <div class="form__row form__row--accent">
-          <label for="buyins">从银行买入几手基础筹码</label>
-          <div class="input-group">
-            <input id="buyins" name="buyins" type="number" min="1" step="1" value="1">
-            <span class="input-group__hint">每手包含 5 黑 / 5 蓝 / 8 白 / 10 红</span>
-          </div>
-        </div>
-
-        <button type="submit" class="button">计算</button>
-      </form>
-    </section>
-
-    <section id="results" class="card card--result" hidden>
-      <h2>计算结果</h2>
-      <p class="result__headline">
-        总筹码 <span id="total-chips">0</span> 枚，总价值 <span id="total-value">¥0.00</span>
-      </p>
-      <p class="result__baseline">
-        初始买入成本 <span id="starting-value">¥0.00</span>
-      </p>
-      <p class="result__net" id="net-delta" data-state="neutral">
-        <span id="net-delta-label">当前盈亏（持平）</span>
-        <span id="net-delta-value">¥0.00</span>
-      </p>
-      <ul id="breakdown" class="result__list"></ul>
-    </section>
-
-    <section id="scoreboard" class="card card--scoreboard" hidden>
-      <div class="scoreboard__header">
-        <h2>房间结算</h2>
-        <span id="scoreboard-room" class="scoreboard__room"></span>
-      </div>
-      <ul id="scoreboard-list" class="scoreboard__list"></ul>
     </section>
 
     <footer class="app__footer">
-      <p>筹码面值可在脚本中修改。欢迎在 GitHub 上继续开发。</p>
+      <p>房间页面会展示实时结算与同步功能。欢迎在 GitHub 上继续开发。</p>
     </footer>
   </main>
 
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
-  <script src="script.js"></script>
+  <script src="lobby.js"></script>
 </body>
 </html>
 

@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>房间 | 81筹码计算器</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="app">
+    <header class="app__header">
+      <h1>81筹码计算器</h1>
+      <p>与房间内的朋友同步筹码结算。</p>
+    </header>
+
+    <section class="card card--connection" id="connection-card">
+      <h2>房间连接</h2>
+      <p class="connection__hint" id="connection-hint">
+        请确认昵称后进入房间。若通过分享链接打开，可直接输入昵称加入。
+      </p>
+      <div class="connection__form">
+        <label class="connection__label" for="player-name">我的昵称</label>
+        <input id="player-name" type="text" placeholder="例如：Leo" maxlength="20">
+      </div>
+      <div class="connection__actions">
+        <button id="create-room" type="button" class="button button--secondary">创建房间</button>
+        <div class="connection__join">
+          <input id="room-code" type="text" placeholder="房间号" maxlength="8">
+          <button id="join-room" type="button" class="button">加入房间</button>
+        </div>
+      </div>
+      <div id="connection-status" class="connection__status" aria-live="polite"></div>
+    </section>
+
+    <section class="card card--calculator" id="calculator-card" data-stage="calculator" hidden>
+      <h2>我的计算</h2>
+      <p class="calculator__hint">确认买入手数后，填写自己当前持有的筹码数量即可看到盈亏。</p>
+      <div class="bank-form" id="bank-form" hidden>
+        <div class="bank-form__row">
+          <label for="bank-hands">新增银行买入</label>
+          <div class="bank-form__controls">
+            <input id="bank-hands" type="number" min="1" step="1" value="1">
+            <button id="record-buyin" type="button" class="button button--ghost">记录</button>
+          </div>
+        </div>
+        <p class="bank-form__hint">每手成本 <span id="bank-hand-value">¥0.00</span></p>
+      </div>
+      <form id="chip-form" class="form" data-disabled>
+        <div class="form__row">
+          <label for="black">黑色筹码 (¥40)</label>
+          <div class="input-group">
+            <input id="black" name="black" type="number" min="0" step="1" value="0" data-value="40">
+            <span class="input-group__hint">每枚 ¥40，默认 5 枚</span>
+          </div>
+        </div>
+
+        <div class="form__row">
+          <label for="blue">蓝色筹码 (¥20)</label>
+          <div class="input-group">
+            <input id="blue" name="blue" type="number" min="0" step="1" value="0" data-value="20">
+            <span class="input-group__hint">每枚 ¥20，默认 5 枚</span>
+          </div>
+        </div>
+
+        <div class="form__row">
+          <label for="white">白色筹码 (¥10)</label>
+          <div class="input-group">
+            <input id="white" name="white" type="number" min="0" step="1" value="0" data-value="10">
+            <span class="input-group__hint">每枚 ¥10，默认 8 枚</span>
+          </div>
+        </div>
+
+        <div class="form__row">
+          <label for="red">红色筹码 (¥2)</label>
+          <div class="input-group">
+            <input id="red" name="red" type="number" min="0" step="1" value="0" data-value="2">
+            <span class="input-group__hint">每枚 ¥2，默认 10 枚</span>
+          </div>
+        </div>
+
+        <div class="form__row form__row--accent">
+          <label for="buyins">从银行买入几手基础筹码</label>
+          <div class="input-group">
+            <input id="buyins" name="buyins" type="number" min="1" step="1" value="1">
+            <span class="input-group__hint">每手包含 5 黑 / 5 蓝 / 8 白 / 10 红</span>
+          </div>
+        </div>
+
+        <button type="submit" class="button">计算</button>
+      </form>
+    </section>
+
+    <section id="results" class="card card--result" hidden>
+      <h2>计算结果</h2>
+      <p class="result__headline">
+        总筹码 <span id="total-chips">0</span> 枚，总价值 <span id="total-value">¥0.00</span>
+      </p>
+      <p class="result__baseline">
+        初始买入成本 <span id="starting-value">¥0.00</span>
+      </p>
+      <p class="result__net" id="net-delta" data-state="neutral">
+        <span id="net-delta-label">当前盈亏（持平）</span>
+        <span id="net-delta-value">¥0.00</span>
+      </p>
+      <ul id="breakdown" class="result__list"></ul>
+    </section>
+
+    <section id="scoreboard" class="card card--scoreboard" hidden>
+      <div class="scoreboard__header">
+        <h2>房间结算</h2>
+        <span id="scoreboard-room" class="scoreboard__room"></span>
+        <button id="copy-room-code" type="button" class="button button--ghost" hidden>复制房间号</button>
+      </div>
+      <ul id="scoreboard-list" class="scoreboard__list"></ul>
+    </section>
+
+    <section id="bank-log-card" class="card card--bank" hidden>
+      <div class="bank__header">
+        <h2>银行买入记录</h2>
+        <span id="bank-total" class="bank__total">总计 ¥0.00</span>
+      </div>
+      <ul id="bank-log-list" class="bank__list"></ul>
+      <p id="bank-log-empty" class="bank__empty">暂无买入记录。</p>
+    </section>
+
+    <footer class="app__footer">
+      <p>提交后实时同步盈亏，分享房间链接给更多朋友。</p>
+    </footer>
+  </main>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
+

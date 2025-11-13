@@ -13,14 +13,21 @@ const createRoomButton = document.querySelector("#create-room");
 const joinRoomButton = document.querySelector("#join-room");
 const roomCodeInput = document.querySelector("#room-code");
 const connectionStatus = document.querySelector("#connection-status");
-const shareLinkContainer = document.querySelector("#share-link");
-const shareLinkText = document.querySelector("#share-link-text");
-const copyLinkButton = document.querySelector("#copy-link");
 const connectionCard = document.querySelector("#connection-card");
 const calculatorCard = document.querySelector("#calculator-card");
 const scoreboardSection = document.querySelector("#scoreboard");
 const scoreboardRoom = document.querySelector("#scoreboard-room");
 const scoreboardList = document.querySelector("#scoreboard-list");
+const connectionHint = document.querySelector("#connection-hint");
+const copyRoomCodeButton = document.querySelector("#copy-room-code");
+const bankForm = document.querySelector("#bank-form");
+const bankHandsInput = document.querySelector("#bank-hands");
+const recordBuyinButton = document.querySelector("#record-buyin");
+const bankHandValueEl = document.querySelector("#bank-hand-value");
+const bankLogCard = document.querySelector("#bank-log-card");
+const bankLogList = document.querySelector("#bank-log-list");
+const bankLogEmpty = document.querySelector("#bank-log-empty");
+const bankTotalEl = document.querySelector("#bank-total");
 
 const STARTING_STACK = {
   black: 5,
@@ -33,6 +40,14 @@ const currencyFormatter = new Intl.NumberFormat("zh-CN", {
   style: "currency",
   currency: "CNY",
   minimumFractionDigits: 2,
+});
+
+const dateTimeFormatter = new Intl.DateTimeFormat("zh-CN", {
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
 });
 
 const BASE_STACK_VALUE = Object.entries(STARTING_STACK).reduce(
@@ -66,6 +81,8 @@ let playerId = null;
 let playerDisplayName = "";
 let playersRef = null;
 let playersListener = null;
+let bankLogsRef = null;
+let bankLogsListener = null;
 
 function ensureFirebase() {
   if (
@@ -99,6 +116,9 @@ function toggleFormEnabled(enabled) {
   if (connectionCard && enabled) {
     connectionCard.hidden = true;
   }
+  if (bankForm) {
+    bankForm.hidden = !enabled;
+  }
   if (enabled) {
     chipForm.removeAttribute("data-disabled");
   } else {
@@ -109,6 +129,12 @@ function toggleFormEnabled(enabled) {
       el.disabled = !enabled && el.type !== "submit";
     }
   });
+  if (bankHandsInput) {
+    bankHandsInput.disabled = !enabled;
+  }
+  if (recordBuyinButton) {
+    recordBuyinButton.disabled = !enabled;
+  }
 }
 
 function updateStartingValueDisplay(buyins) {
@@ -118,6 +144,12 @@ function updateStartingValueDisplay(buyins) {
   );
 }
 
+function updateBankHandValue() {
+  if (bankHandValueEl) {
+    bankHandValueEl.textContent = currencyFormatter.format(BASE_STACK_VALUE);
+  }
+}
+
 function generateRoomCode() {
   const alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
   let code = "";
@@ -125,16 +157,12 @@ function generateRoomCode() {
     code += alphabet.charAt(Math.floor(Math.random() * alphabet.length));
   }
   return code;
-
-}
-
-function getShareLink(code) {
-  const url = new URL(window.location.href);
-  url.hash = code;
-  return url.toString();
 }
 
 async function createRoom() {
+  if (!createRoomButton) {
+    return;
+  }
   try {
     ensureFirebase();
   } catch (error) {
@@ -188,6 +216,9 @@ async function createRoom() {
 }
 
 async function joinRoom(codeFromInput) {
+  if (!joinRoomButton) {
+    return;
+  }
   try {
     ensureFirebase();
   } catch (error) {
@@ -244,6 +275,10 @@ async function connectToRoom(code, name) {
 
   const roomRef = db.ref(`rooms/${code}`);
   playersRef = roomRef.child("players");
+  if (bankLogsRef && bankLogsListener) {
+    bankLogsRef.off("value", bankLogsListener);
+  }
+  bankLogsRef = roomRef.child("bankLogs");
 
   const newPlayerRef = playersRef.push();
   playerId = newPlayerRef.key;
@@ -262,17 +297,25 @@ async function connectToRoom(code, name) {
   newPlayerRef.onDisconnect().remove();
 
   subscribeToPlayers();
+  subscribeToBankLogs();
   toggleFormEnabled(true);
   scoreboardSection.hidden = false;
   scoreboardRoom.textContent = `房间号：${code}`;
-
-  const shareLink = getShareLink(code);
-  shareLinkContainer.hidden = false;
-  shareLinkText.textContent = shareLink;
+  if (scoreboardRoom) {
+    scoreboardRoom.dataset.room = code;
+  }
+  if (copyRoomCodeButton) {
+    copyRoomCodeButton.hidden = false;
+    copyRoomCodeButton.dataset.room = code;
+    copyRoomCodeButton.textContent = "复制房间号";
+  }
 
   if (window.location.hash !== `#${code}`) {
     window.history.replaceState(null, "", `#${code}`);
   }
+
+  sessionStorage.removeItem("chipCalcName");
+  sessionStorage.removeItem("chipCalcRoomCode");
 
   chipForm.reset();
   buyinsInput.value = "1";
@@ -292,6 +335,19 @@ function subscribeToPlayers() {
     renderScoreboard(players);
   };
   playersRef.on("value", playersListener);
+}
+
+function subscribeToBankLogs() {
+  if (!bankLogsRef) {
+    return;
+  }
+  if (bankLogsListener) {
+    bankLogsRef.off("value", bankLogsListener);
+  }
+  bankLogsListener = (snapshot) => {
+    renderBankLogs(snapshot.val());
+  };
+  bankLogsRef.on("value", bankLogsListener);
 }
 
 async function syncPlayerData(payload) {
@@ -362,6 +418,76 @@ function renderScoreboard(playersMap) {
   });
 }
 
+function renderBankLogs(logMap) {
+  if (!bankLogCard || !bankLogList || !bankTotalEl) {
+    return;
+  }
+
+  const logs = Object.entries(logMap || {}).map(([key, value]) => ({
+    id: key,
+    ...value,
+    createdAt: value?.createdAt || 0,
+    hands: Number(value?.hands) || 0,
+    totalValue:
+      typeof value?.totalValue === "number"
+        ? value.totalValue
+        : Number(value?.totalValue) || 0,
+  }));
+
+  if (!logs.length) {
+    bankLogCard.hidden = true;
+    bankLogList.innerHTML = "";
+    bankTotalEl.textContent = `总计 ${currencyFormatter.format(0)}`;
+    if (bankLogEmpty) {
+      bankLogEmpty.hidden = false;
+    }
+    return;
+  }
+
+  logs.sort((a, b) => b.createdAt - a.createdAt);
+
+  bankLogCard.hidden = false;
+  bankLogList.innerHTML = "";
+  let totalValue = 0;
+
+  logs.forEach((log) => {
+    const effectiveValue =
+      log.totalValue || log.hands * BASE_STACK_VALUE || 0;
+    totalValue += effectiveValue;
+
+    const li = document.createElement("li");
+    li.className = "bank__item";
+
+    const who = document.createElement("span");
+    who.className = "bank__who";
+    who.textContent = log.name || "玩家";
+
+    const details = document.createElement("span");
+    details.className = "bank__details";
+    details.textContent = `${log.hands} 手 · ${currencyFormatter.format(
+      effectiveValue
+    )}`;
+
+    const time = document.createElement("span");
+    time.className = "bank__time";
+    if (log.createdAt) {
+      time.textContent = dateTimeFormatter.format(new Date(log.createdAt));
+    } else {
+      time.textContent = "";
+    }
+
+    li.appendChild(who);
+    li.appendChild(details);
+    li.appendChild(time);
+    bankLogList.appendChild(li);
+  });
+
+  bankTotalEl.textContent = `总计 ${currencyFormatter.format(totalValue)}`;
+  if (bankLogEmpty) {
+    bankLogEmpty.hidden = true;
+  }
+}
+
 function renderBreakdown(items) {
   breakdownList.innerHTML = "";
 
@@ -392,6 +518,52 @@ function renderBreakdown(items) {
     li.appendChild(value);
     breakdownList.appendChild(li);
   });
+}
+
+async function recordBankBuyIn() {
+  if (!bankLogsRef) {
+    setStatus("尚未连接房间，无法记录银行买入。", "error");
+    return;
+  }
+  const rawHands = Number(bankHandsInput?.value);
+  const hands = Number.isFinite(rawHands) ? Math.floor(rawHands) : 0;
+  if (!hands || hands < 1) {
+    setStatus("请输入正确的买入手数（至少 1 手）。", "error");
+    bankHandsInput?.focus();
+    return;
+  }
+
+  const totalValue = hands * BASE_STACK_VALUE;
+
+  try {
+    await bankLogsRef.push({
+      playerId,
+      name: playerDisplayName || playerNameInput?.value || "玩家",
+      hands,
+      totalValue,
+      createdAt: firebase.database.ServerValue.TIMESTAMP,
+    });
+
+    const currentBuyins = Math.max(
+      1,
+      Number(buyinsInput.value) || 1
+    ) + hands;
+    buyinsInput.value = currentBuyins.toString();
+    updateStartingValueDisplay(currentBuyins);
+    await syncPlayerData({
+      name: playerDisplayName || playerNameInput?.value || "玩家",
+      buyins: currentBuyins,
+      startingValue: BASE_STACK_VALUE * currentBuyins,
+    });
+
+    setStatus(`已记录银行买入 ${hands} 手。`);
+    if (bankHandsInput) {
+      bankHandsInput.value = "1";
+    }
+  } catch (error) {
+    console.error("记录银行买入失败", error);
+    setStatus("记录银行买入失败，请稍后重试。", "error");
+  }
 }
 
 function handleCalculation(event) {
@@ -471,28 +643,38 @@ function attemptAutoJoin() {
   const hash = window.location.hash.replace("#", "").trim();
   if (hash.length >= 4) {
     roomCodeInput.value = hash.toUpperCase();
+    setStatus("请输入昵称后点击加入房间。");
   }
 }
 
 function setupEventHandlers() {
-  chipForm.addEventListener("submit", handleCalculation);
+  chipForm?.addEventListener("submit", handleCalculation);
 
-  buyinsInput.addEventListener("input", () => {
+  buyinsInput?.addEventListener("input", () => {
     updateStartingValueDisplay(Number(buyinsInput.value));
   });
 
-  createRoomButton.addEventListener("click", createRoom);
-  joinRoomButton.addEventListener("click", () => joinRoom());
+  createRoomButton?.addEventListener("click", createRoom);
+  joinRoomButton?.addEventListener("click", () => joinRoom());
 
-  copyLinkButton.addEventListener("click", async () => {
-    if (!shareLinkText.textContent) {
+  recordBuyinButton?.addEventListener("click", recordBankBuyIn);
+  bankHandsInput?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      recordBankBuyIn();
+    }
+  });
+
+  copyRoomCodeButton?.addEventListener("click", async () => {
+    const code = copyRoomCodeButton.dataset.room || scoreboardRoom?.dataset.room;
+    if (!code) {
       return;
     }
     try {
-      await navigator.clipboard.writeText(shareLinkText.textContent);
-      copyLinkButton.textContent = "已复制";
+      await navigator.clipboard.writeText(code);
+      copyRoomCodeButton.textContent = "已复制";
       setTimeout(() => {
-        copyLinkButton.textContent = "复制链接";
+        copyRoomCodeButton.textContent = "复制房间号";
       }, 2000);
     } catch (error) {
       console.error("复制失败", error);
@@ -506,10 +688,68 @@ function setupEventHandlers() {
   });
 }
 
+function getRoomCodeFromURL() {
+  const params = new URLSearchParams(window.location.search);
+  const param = params.get("room");
+  if (param) {
+    return param.trim().toUpperCase();
+  }
+  const hash = window.location.hash.replace("#", "").trim();
+  if (hash) {
+    return hash.toUpperCase();
+  }
+  return "";
+}
+
+function attemptAutoConnect() {
+  if (!createRoomButton || !joinRoomButton) {
+    return;
+  }
+
+  const action = sessionStorage.getItem("chipCalcAction");
+  const storedName = sessionStorage.getItem("chipCalcName") || "";
+  const storedRoom = sessionStorage.getItem("chipCalcRoomCode") || "";
+  const roomFromURL = getRoomCodeFromURL();
+
+  if (storedName) {
+    playerNameInput.value = storedName;
+  }
+
+  if (roomFromURL && roomCodeInput) {
+    roomCodeInput.value = roomFromURL;
+  } else if (storedRoom && roomCodeInput) {
+    roomCodeInput.value = storedRoom;
+  }
+
+  if (action === "create") {
+    sessionStorage.removeItem("chipCalcAction");
+    setStatus("正在创建房间…");
+    createRoom();
+  } else if (action === "join") {
+    sessionStorage.removeItem("chipCalcAction");
+    const targetRoom = roomCodeInput?.value || storedRoom || roomFromURL;
+    if (targetRoom) {
+      joinRoom(targetRoom);
+    } else {
+      setStatus("未找到房间号，请确认链接或返回首页重新进入。", "error");
+    }
+  } else if (roomFromURL) {
+    setStatus("请输入昵称并点击加入房间。");
+    if (connectionHint) {
+      connectionHint.textContent = `房间号 ${roomFromURL} 已填写，请输入昵称后加入。`;
+    }
+  }
+}
+
 function init() {
+  if (!chipForm || !buyinsInput) {
+    return;
+  }
   toggleFormEnabled(false);
+  updateBankHandValue();
   updateStartingValueDisplay(Number(buyinsInput.value));
   attemptAutoJoin();
+  attemptAutoConnect();
   setupEventHandlers();
 }
 
